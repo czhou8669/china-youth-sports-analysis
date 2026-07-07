@@ -61,16 +61,6 @@
 
 > 完整 13 张图表详见 `output/charts/` 目录。完整分析报告见 `docs/README.pdf`。
 
-### 分析报告预览
-
-<p align="center">
-<a href="docs/README.pdf"><img src="docs/README_preview.png" width="600"></a>
-</p>
-
-<p align="center">点击预览图下载完整 PDF 报告（共 10 页）</p>
-
-> 💡 若 GitHub 内置 PDF 预览器显示"Error loading PDF"，直接点击 PDF 文件右侧的 **Download** 或 **Raw** 按钮即可正常下载查看。原因为 reportlab 嵌入的中文字体与 GitHub 网页渲染器不兼容，PDF 文件本身有效。
-
 ## 项目结构
 
 ```
@@ -92,9 +82,6 @@
 ├── output/
 │   ├── charts/              # 生成的可视化图表（13 张 .png）
 │   └── reports/            # 分析报告输出
-├── docs/                    # 项目文档
-│   ├── README.pdf            # 分析报告 PDF（完整版，10页）
-│   └── README_preview.png    # 报告全页拼接预览图（10页合一）
 └── maps/                   # 中国省份地图数据（GeoJSON，供图01/07使用）
 ```
 
