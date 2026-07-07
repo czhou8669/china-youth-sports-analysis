@@ -4,21 +4,130 @@
 可视化图表生成模块
 使用 matplotlib 生成全部分析图表，输出到 output/charts/ 目录
 图表编号与 PDF 报告中的引用一致
+
+注：图01、图07 为中国省份地图（choropleth），由代码读取 maps/china_provinces.json
+并用 matplotlib Polygon 绘制，无外部 GIS 库依赖。
 """
 
 import os
+import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib.patches import Polygon as MplPolygon
+from matplotlib.collections import PatchCollection
+from matplotlib.colors import LinearSegmentedColormap, BoundaryNorm
 
 from config import (CHART_DIR, COLOR_BLUE, COLOR_RED, COLOR_GREEN, COLOR_DARK,
                     COLOR_BODY, COLOR_LIGHT, COLOR_BG, COLOR_ACCENT, COLOR_PALETTE,
                     YRD_PROVINCES, MUNICIPALITIES, RACQUET_SPORTS, TEAM_BALL_SPORTS,
-                    EMERGING_SPORTS, PROVINCE_DATA, setup_chinese_font, ensure_dirs)
+                    EMERGING_SPORTS, PROVINCE_DATA, MAP_DIR,
+                    setup_chinese_font, ensure_dirs)
 
 # 初始化字体
 setup_chinese_font()
+
+
+# ========== 地图绘制辅助 ==========
+
+def _load_geojson():
+    """加载中国省份 GeoJSON"""
+    geo_path = os.path.join(MAP_DIR, "china_provinces.json")
+    if not os.path.exists(geo_path):
+        raise FileNotFoundError(
+            f"未找到地图数据: {geo_path}\n"
+            f"请下载中国省份 GeoJSON 至此路径，或从以下地址获取：\n"
+            f"https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json"
+        )
+    with open(geo_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _draw_china_map(ax, geo_data, value_dict, bins, cmap, legend_labels, title):
+    """通用中国省份地图绘制函数
+
+    Args:
+        ax: matplotlib axes
+        geo_data: GeoJSON dict
+        value_dict: {省名称: 数值}
+        bins: 分级阈值列表
+        cmap: matplotlib colormap 名称或对象
+        legend_labels: 图例标签列表，与 bins 对应
+        title: 子图标题
+    """
+    # 配色：缺失值用最浅色
+    norm = BoundaryNorm(bins + [bins[-1] * 2 + 1], cmap.N) if hasattr(cmap, "N") else None
+
+    for feat in geo_data["features"]:
+        name = feat["properties"]["name"]
+        # 名称兼容：GeoJSON 用"省"结尾，去掉
+        clean_name = name
+        if clean_name not in value_dict:
+            # 尝试去掉"省"或"市"匹配
+            for suffix in ["省", "市", "自治区", "壮族自治区", "回族自治区", "维吾尔自治区"]:
+                candidate = clean_name.replace(suffix, "")
+                if candidate in value_dict:
+                    clean_name = candidate
+                    break
+
+        val = value_dict.get(clean_name, None)
+        # 缺失值用最浅
+        if val is None:
+            color = cmap(0.05)
+        else:
+            # 找到该值对应的 bin
+            idx = 0
+            for i, b in enumerate(bins):
+                if val >= b:
+                    idx = i + 1
+            idx = min(idx, len(bins))
+            color = cmap(idx / len(bins))
+
+        # 绘制多边形
+        geom = feat["geometry"]
+        if geom["type"] == "MultiPolygon":
+            polygons = geom["coordinates"]
+        else:
+            polygons = [geom["coordinates"]]
+
+        for poly in polygons:
+            for ring in poly:
+                if len(ring) < 3:
+                    continue
+                patch = MplPolygon(ring, closed=True, facecolor=color,
+                                   edgecolor="white", linewidth=0.4)
+                ax.add_patch(patch)
+
+    # 标注省名（仅在中心点位置标注）
+    for feat in geo_data["features"]:
+        name = feat["properties"]["name"]
+        # 简化显示名
+        short = name
+        for suffix in ["壮族自治区", "维吾尔自治区", "回族自治区", "自治区"]:
+            short = short.replace(suffix, "")
+        if len(short) > 4:
+            short = short[:3]
+        centroid = feat["properties"].get("center") or feat["properties"].get("centroid")
+        if centroid:
+            ax.text(centroid[0], centroid[1], short,
+                    ha="center", va="center", fontsize=7, color="#1e293b")
+
+    ax.set_xlim(73, 135)
+    ax.set_ylim(18, 54)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title(title, fontsize=13, fontweight="bold", pad=10)
+
+    # 自定义图例
+    from matplotlib.patches import Patch
+    legend_patches = []
+    n_bins = len(bins)
+    for i, label in enumerate(legend_labels):
+        legend_patches.append(Patch(facecolor=cmap((i + 1) / n_bins),
+                                    edgecolor="white", label=label))
+    ax.legend(handles=legend_patches, loc="lower left", fontsize=8,
+              frameon=False, title="赛事数量", title_fontsize=8)
 
 
 def _save_fig(fig, filename):
@@ -30,37 +139,33 @@ def _save_fig(fig, filename):
     return path
 
 
+# ========== 图表函数 ==========
+
 def chart_01_province_distribution(df):
-    """图01: 各省份赛事数量分布（TOP 15 + 长尾）"""
-    fig, ax = plt.subplots(figsize=(12, 6))
+    """图01: 全国青少年体育赛事省份分布地图（热力地图）"""
+    fig, ax = plt.subplots(figsize=(12, 9))
 
-    prov_counts = df["省名称"].value_counts().head(20)
-    colors = [COLOR_BLUE if i < 3 else COLOR_BODY if i < 10 else COLOR_LIGHT
-              for i in range(len(prov_counts))]
+    prov_counts = df["省名称"].value_counts()
+    value_dict = prov_counts.to_dict()
 
-    bars = ax.barh(range(len(prov_counts)), prov_counts.values, color=colors, edgecolor="white")
-    ax.set_yticks(range(len(prov_counts)))
-    ax.set_yticklabels(prov_counts.index, fontsize=10)
-    ax.invert_yaxis()
-    ax.set_xlabel("赛事数量（场）", fontsize=11)
-    ax.set_title("全国青少年体育赛事省份分布 TOP 20", fontsize=14, fontweight="bold", pad=15)
+    # 5 级分色：0-30 / 31-100 / 101-200 / 201-400 / 401+
+    bins = [31, 101, 201, 401]
+    cmap = LinearSegmentedColormap.from_list(
+        "blue_white",
+        ["#deebf7", "#9ecae1", "#4292c6", "#08519c", "#08306b"]
+    )
+    legend_labels = ["0–30场", "31–100场", "101–200场", "201–400场", "401场以上"]
 
-    # 标注数值
-    for bar, val in zip(bars, prov_counts.values):
-        ax.text(bar.get_width() + 8, bar.get_y() + bar.get_height()/2,
-                f"{val}", va="center", fontsize=9, color=COLOR_DARK)
+    geo_data = _load_geojson()
+    _draw_china_map(ax, geo_data, value_dict, bins, cmap, legend_labels,
+                    title="2024年全国青少年体育赛事数量分布")
 
-    # 标注前三占比
-    total = len(df)
-    top3 = prov_counts.head(3).sum()
-    ax.text(0.98, 0.95, f"前三占比: {top3/total*100:.1f}%", transform=ax.transAxes,
-            fontsize=10, ha="right", va="top",
-            bbox=dict(boxstyle="round,pad=0.3", facecolor=COLOR_BG, edgecolor=COLOR_LIGHT))
-
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.tight_layout()
-    return _save_fig(fig, "01_省份分布.png")
+    fig.suptitle("2024年全国青少年体育赛事数量分布",
+                 fontsize=15, fontweight="bold", y=0.96)
+    fig.text(0.5, 0.91, "数据来源：全国群众体育赛事数据库（2024年，共5325场）",
+             ha="center", fontsize=10, color=COLOR_LIGHT)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    return _save_fig(fig, "01_省份分布地图.png")
 
 
 def chart_02_sport_popularity(df):
@@ -298,36 +403,29 @@ def chart_06_emerging_sports(df):
 
 
 def chart_07_province_density(prov_stats):
-    """图07: 各省份每百万人赛事数（密度）"""
-    fig, ax = plt.subplots(figsize=(12, 7))
+    """图07: 各省份赛事密度地图（热力地图，按每百万人赛事数分级）"""
+    fig, ax = plt.subplots(figsize=(12, 9))
 
-    data = prov_stats.dropna(subset=["每百万人赛事数"]).sort_values("每百万人赛事数", ascending=True)
-    national_avg = data["每百万人赛事数"].mean()
+    value_dict = prov_stats.set_index("省名称")["每百万人赛事数"].to_dict()
 
-    colors = []
-    for _, r in data.iterrows():
-        if r["每百万人赛事数"] >= national_avg:
-            colors.append(COLOR_BLUE)
-        else:
-            colors.append(COLOR_LIGHT)
+    # 5 级分色：0-3 / 3-8 / 8-15 / 15-25 / 25+
+    bins = [3, 8, 15, 25]
+    cmap = LinearSegmentedColormap.from_list(
+        "orange_white",
+        ["#fff5eb", "#fdd0a2", "#fd8d3c", "#d94801", "#7f2704"]
+    )
+    legend_labels = ["0–3", "3–8", "8–15", "15–25", "25以上"]
 
-    bars = ax.barh(range(len(data)), data["每百万人赛事数"].values, color=colors, edgecolor="white")
-    ax.set_yticks(range(len(data)))
-    ax.set_yticklabels(data["省名称"].values, fontsize=9)
-    ax.set_xlabel("每百万人赛事数（场）", fontsize=11)
-    ax.set_title("各省份赛事密度（每百万人赛事数）", fontsize=14, fontweight="bold", pad=15)
+    geo_data = _load_geojson()
+    _draw_china_map(ax, geo_data, value_dict, bins, cmap, legend_labels,
+                    title="2024年全国青少年体育赛事密度（每百万人）")
 
-    ax.axvline(x=national_avg, color=COLOR_RED, linestyle="--", linewidth=1.5, label=f"全国均值 {national_avg:.1f}")
-    ax.legend(fontsize=10)
-
-    for bar, val in zip(bars, data["每百万人赛事数"].values):
-        ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height()/2,
-                f"{val:.1f}", va="center", fontsize=8, color=COLOR_DARK)
-
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.tight_layout()
-    return _save_fig(fig, "07_省份赛事密度.png")
+    fig.suptitle("2024年全国青少年体育赛事密度（每百万人）",
+                 fontsize=15, fontweight="bold", y=0.96)
+    fig.text(0.5, 0.91, "消除人口基数差异后的赛事供给水平",
+             ha="center", fontsize=10, color=COLOR_LIGHT)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    return _save_fig(fig, "07_赛事密度地图.png")
 
 
 def chart_08_gdp_scatter(prov_stats):
@@ -388,71 +486,67 @@ def chart_08_gdp_scatter(prov_stats):
 
 
 def chart_09_yrd_vs_national(df):
-    """图09: 长三角 vs 全国对比"""
+    """图09: 长三角 vs 全国 整体特征对比（饼图+密度柱+平均规模柱）"""
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
     yrd = df[df["省名称"].isin(YRD_PROVINCES)]
     national = df
 
-    # 子图1: 赛事占比 vs 人口占比
+    # 子图1: 长三角赛事占全国比重（饼图）
     ax = axes[0]
+    yrd_share = len(yrd) / len(national) * 100
+    other_share = 100 - yrd_share
+    ax.pie([yrd_share, other_share],
+           labels=["长三角", "其他省份"],
+           colors=[COLOR_BLUE, "#deebf7"],
+           autopct="%.1f%%", startangle=90,
+           textprops={"fontsize": 11, "fontweight": "bold"})
+    ax.set_title("长三角赛事占全国比重", fontsize=12, fontweight="bold")
+
+    # 子图2: 每百万人赛事密度对比
+    ax = axes[1]
     yrd_pop = sum(PROVINCE_DATA[p]["pop"] for p in YRD_PROVINCES)
     total_pop = sum(v["pop"] for v in PROVINCE_DATA.values())
-    labels = ["长三角", "其他地区"]
-    pop_vals = [yrd_pop / total_pop * 100, (1 - yrd_pop / total_pop) * 100]
-    event_vals = [len(yrd) / len(national) * 100, (1 - len(yrd) / len(national)) * 100]
-
-    x = np.arange(2)
-    w = 0.35
-    ax.bar(x - w/2, pop_vals, w, label="人口占比", color=COLOR_LIGHT, edgecolor="white")
-    ax.bar(x + w/2, event_vals, w, label="赛事占比", color=COLOR_BLUE, edgecolor="white")
-    ax.set_xticks(x)
-    ax.set_xticklabels(["长三角", "其他地区"], fontsize=11)
-    ax.set_ylabel("占比 (%)", fontsize=10)
-    ax.set_title("人口占比 vs 赛事占比", fontsize=12, fontweight="bold")
-    ax.legend(fontsize=9)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
-    # 子图2: 赛事密度对比
-    ax = axes[1]
     yrd_density = len(yrd) / yrd_pop * 100
     nat_density = len(national) / total_pop * 100
-    bars = ax.bar(["长三角", "全国"], [yrd_density, nat_density],
-                  color=[COLOR_BLUE, COLOR_LIGHT], edgecolor="white")
+    bars = ax.bar(["长三角整体", "全国均值"], [yrd_density, nat_density],
+                  color=[COLOR_BLUE, "#deebf7"], edgecolor="white", width=0.5)
     ax.set_ylabel("每百万人赛事数", fontsize=10)
-    ax.set_title("赛事密度对比", fontsize=12, fontweight="bold")
+    ax.set_title("每百万人赛事密度对比", fontsize=12, fontweight="bold")
     for bar, val in zip(bars, [yrd_density, nat_density]):
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
                 f"{val:.1f}", ha="center", fontsize=12, fontweight="bold")
+    ax.set_ylim(0, max(yrd_density, nat_density) * 1.15)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    # 子图3: 平均规模对比
+    # 子图3: 平均赛事规模对比
     ax = axes[2]
     yrd_avg = yrd["赛事规模"].mean()
     nat_avg = national["赛事规模"].mean()
-    bars = ax.bar(["长三角", "全国"], [yrd_avg, nat_avg],
-                  color=[COLOR_RED, COLOR_LIGHT], edgecolor="white")
-    ax.set_ylabel("平均赛事规模（人）", fontsize=10)
-    ax.set_title("平均赛事规模对比", fontsize=12, fontweight="bold")
+    bars = ax.bar(["长三角", "全国均值"], [yrd_avg, nat_avg],
+                  color=[COLOR_BLUE, "#deebf7"], edgecolor="white", width=0.5)
+    ax.set_ylabel("平均参赛人数（人）", fontsize=10)
+    ax.set_title("平均赛事规模对比（人）", fontsize=12, fontweight="bold")
     for bar, val in zip(bars, [yrd_avg, nat_avg]):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
-                f"{val:.0f}", ha="center", fontsize=12, fontweight="bold")
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
+                f"{val:.0f}人", ha="center", fontsize=12, fontweight="bold")
+    ax.set_ylim(0, max(yrd_avg, nat_avg) * 1.15)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    fig.suptitle("长三角 vs 全国：高密度、小规模、精品化", fontsize=14, fontweight="bold", y=1.02)
+    fig.suptitle("长三角 vs 全国：赛事整体特征对比",
+                 fontsize=14, fontweight="bold", y=1.02)
     fig.tight_layout()
     return _save_fig(fig, "09_长三角vs全国.png")
 
 
 def chart_10_yrd_internal(df):
-    """图10: 长三角内部结构性差异"""
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    """图10: 长三角内部四省赛事特征对比（2×2 子图）"""
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # 子图1: 四省市赛事数量与密度
-    ax = axes[0]
+    # 子图1（左上）: 各省赛事数量 vs 每百万人赛事数
+    ax = axes[0, 0]
     yrd_data = []
     for prov in YRD_PROVINCES:
         sub = df[df["省名称"] == prov]
@@ -461,34 +555,48 @@ def chart_10_yrd_internal(df):
             "省/市": prov,
             "赛事数量": len(sub),
             "每百万人": len(sub) / pop * 100,
-            "平均规模": sub["赛事规模"].mean(),
         })
     yrd_df = pd.DataFrame(yrd_data)
 
     x = np.arange(len(YRD_PROVINCES))
     w = 0.35
-    bars1 = ax.bar(x - w/2, yrd_df["赛事数量"], w, label="赛事数量", color=COLOR_BLUE, edgecolor="white")
+    bars1 = ax.bar(x - w/2, yrd_df["赛事数量"], w, label="赛事数量",
+                   color=COLOR_BLUE, edgecolor="white")
     ax2 = ax.twinx()
-    bars2 = ax2.bar(x + w/2, yrd_df["每百万人"], w, label="每百万人", color=COLOR_RED, edgecolor="white")
+    bars2 = ax2.bar(x + w/2, yrd_df["每百万人"], w, label="每百万人赛事数",
+                    color="#fdd0a2", edgecolor="white")
     ax.set_xticks(x)
     ax.set_xticklabels(YRD_PROVINCES, fontsize=11)
     ax.set_ylabel("赛事数量（场）", fontsize=10, color=COLOR_BLUE)
-    ax2.set_ylabel("每百万人赛事数", fontsize=10, color=COLOR_RED)
-    ax.set_title("长三角四省市：数量与密度", fontsize=12, fontweight="bold")
-
-    for bar, val in zip(bars1, yrd_df["赛事数量"]):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
-                f"{val:.0f}", ha="center", fontsize=9, color=COLOR_BLUE)
-    for bar, val in zip(bars2, yrd_df["每百万人"]):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.2,
-                f"{val:.1f}", ha="center", fontsize=9, color=COLOR_RED)
+    ax2.set_ylabel("每百万人赛事数", fontsize=10, color="#d94801")
+    ax.set_title("各省赛事数量 vs 密度", fontsize=12, fontweight="bold")
+    ax.legend(loc="upper left", fontsize=9)
+    ax2.legend(loc="upper right", fontsize=9)
     ax.spines["top"].set_visible(False)
     ax2.spines["top"].set_visible(False)
+    ax.tick_params(axis="y", colors=COLOR_BLUE)
+    ax2.tick_params(axis="y", colors="#d94801")
 
-    # 子图2: 级别结构堆叠柱状图
-    ax = axes[1]
+    # 子图2（右上）: 各省平均赛事规模（低于全国均值红色高亮）
+    ax = axes[0, 1]
+    national_avg = df["赛事规模"].mean()
+    avgs = [df[df["省名称"] == p]["赛事规模"].mean() for p in YRD_PROVINCES]
+    bars = ax.bar(YRD_PROVINCES, avgs, color=COLOR_RED, edgecolor="white")
+    ax.axhline(y=national_avg, color=COLOR_BLUE, linestyle="--", linewidth=1.5,
+               label=f"全国均值 {national_avg:.0f}人")
+    ax.set_ylabel("平均参赛人数（人）", fontsize=10)
+    ax.set_title("各省平均赛事规模（红=低于全国均值）", fontsize=12, fontweight="bold")
+    for bar, val in zip(bars, avgs):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
+                f"{val:.0f}", ha="center", fontsize=10, fontweight="bold")
+    ax.legend(fontsize=9)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # 子图3（左下）: 级别结构堆叠柱状图
+    ax = axes[1, 0]
     levels = ["国家级", "省级", "市级"]
-    level_colors = [COLOR_RED, COLOR_ACCENT, COLOR_BLUE]
+    level_colors = ["#08306b", "#4292c6", "#deebf7"]
     bottom = np.zeros(len(YRD_PROVINCES))
     for level, lc in zip(levels, level_colors):
         vals = []
@@ -500,15 +608,35 @@ def chart_10_yrd_internal(df):
         ax.bar(YRD_PROVINCES, vals, bottom=bottom, label=level, color=lc, edgecolor="white")
         bottom += np.array(vals)
     ax.set_ylabel("占比 (%)", fontsize=10)
-    ax.set_title("赛事级别结构（江苏60%省级一枝独秀）", fontsize=12, fontweight="bold")
-    ax.legend(fontsize=9)
+    ax.set_title("各省赛事级别结构（%）", fontsize=12, fontweight="bold")
+    ax.legend(fontsize=9, loc="upper left")
     ax.set_ylim(0, 110)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    fig.suptitle("长三角内部：上海浙江 vs 江苏安徽的结构性分化", fontsize=14, fontweight="bold", y=1.02)
+    # 子图4（右下）: 各省赛事月份分布（折线图）
+    ax = axes[1, 1]
+    months = list(range(1, 13))
+    prov_colors = {"上海市": "#dc2626", "浙江省": "#1a56db",
+                   "江苏省": "#059669", "安徽省": "#f59e0b"}
+    for prov in YRD_PROVINCES:
+        sub = df[df["省名称"] == prov]
+        month_counts = sub["月份"].value_counts().sort_index()
+        values = [month_counts.get(m, 0) for m in months]
+        ax.plot(months, values, marker="o", linewidth=2, label=prov,
+                color=prov_colors[prov], markersize=5)
+    ax.set_xticks(months)
+    ax.set_xticklabels([f"{m}月" for m in months], fontsize=9)
+    ax.set_ylabel("赛事数量（场）", fontsize=10)
+    ax.set_title("各省赛事月份分布", fontsize=12, fontweight="bold")
+    ax.legend(fontsize=9, loc="upper right")
+    ax.grid(True, alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.suptitle("长三角内部四省赛事特征对比", fontsize=15, fontweight="bold", y=1.0)
     fig.tight_layout()
-    return _save_fig(fig, "10_长三角内部差异.png")
+    return _save_fig(fig, "10_长三角内部特征.png")
 
 
 def chart_11_sh_vs_bj_sports(df):
@@ -604,34 +732,22 @@ def chart_13_small_population_provinces(prov_stats):
 
 
 def run_all_visualizations(df, prov_stats):
-    """生成全部可视化图表
-
-    注意：图01（省份分布地图）和图07（赛事密度地图）为外部工具生成的热力地图，
-    图09（长三角vs全国）和图10（长三角内部特征）为优化版本，
-    以上 4 张以静态文件形式提供于 output/charts/ 目录，不由本函数重新生成。
-    本函数生成其余 9 张代码驱动的图表（02-06, 08, 11-13）。
-    """
+    """生成全部 13 张可视化图表（均由代码生成，无外部静态文件）"""
     ensure_dirs()
-    print("\n[可视化] 开始生成图表...")
-    print("  注：图01/07/09/10 为外部工具生成的优化版本，以静态文件提供，不重新生成")
+    print("\n[可视化] 开始生成 13 张图表...")
 
-    # 图01: 省份分布地图 — 外部提供（热力地图）
-    # 图02-06: 代码生成
+    chart_01_province_distribution(df)
     chart_02_sport_popularity(df)
     chart_03_monthly_distribution(df)
     chart_04_municipality_comparison(df)
     chart_05_consumption_structure(df)
     chart_06_emerging_sports(df)
-    # 图07: 赛事密度地图 — 外部提供（热力地图）
-    # 图08: 代码生成
+    chart_07_province_density(prov_stats)
     chart_08_gdp_scatter(prov_stats)
-    # 图09: 长三角vs全国 — 外部提供（优化版）
-    # 图10: 长三角内部特征 — 外部提供（优化版）
-    # 图11: 代码生成
+    chart_09_yrd_vs_national(df)
+    chart_10_yrd_internal(df)
     chart_11_sh_vs_bj_sports(df)
-    # 图12-13: 代码生成
     chart_12_big_population_provinces(prov_stats)
     chart_13_small_population_provinces(prov_stats)
 
-    print(f"\n[可视化] 代码生成 9 张图表至: {CHART_DIR}")
-    print(f"[可视化] 外部提供 4 张图表（01/07/09/10）已在目录中")
+    print(f"\n[可视化] 全部 13 张图表已生成至: {CHART_DIR}")

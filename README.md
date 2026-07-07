@@ -84,7 +84,7 @@
 ├── docs/                    # 项目文档
 │   ├── README_原版.pdf       # 原始 README（分析报告完整版）
 │   └── README_修正版.pdf     # 修正版 README（含时间口径等 4 项修正）
-└── maps/                   # 交互式地图（pyecharts 生成）
+└── maps/                   # 中国省份地图数据（GeoJSON，供图01/07使用）
 ```
 
 ## 使用方式
