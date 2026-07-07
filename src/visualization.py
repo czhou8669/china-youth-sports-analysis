@@ -158,10 +158,7 @@ def chart_01_province_distribution(df):
 
     geo_data = _load_geojson()
     _draw_china_map(ax, geo_data, value_dict, bins, cmap, legend_labels,
-                    title="2024年全国青少年体育赛事数量分布")
-
-    fig.suptitle("2024年全国青少年体育赛事数量分布",
-                 fontsize=15, fontweight="bold", y=0.96)
+                    title=None)
     fig.text(0.5, 0.91, "数据来源：全国群众体育赛事数据库（2024年，共5325场）",
              ha="center", fontsize=10, color=COLOR_LIGHT)
     fig.tight_layout(rect=[0, 0, 1, 0.93])
