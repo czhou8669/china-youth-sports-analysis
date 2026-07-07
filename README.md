@@ -61,13 +61,25 @@
 
 > 完整 13 张图表详见 `output/charts/` 目录。完整分析报告见 `docs/README.pdf`。
 
-### 分析报告预览
+### 分析报告预览（共 10 页）
 
-<p align="center">
-<a href="docs/README.pdf"><img src="docs/README_page_1.png" width="600"></a>
-</p>
+<details>
+<summary>📷 点击展开完整报告预览</summary>
 
-<p align="center">点击预览图下载完整 PDF 报告</p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_1.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_2.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_3.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_4.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_5.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_6.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_7.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_8.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_9.png" width="600"></a></p>
+<p align="center"><a href="docs/README.pdf"><img src="docs/README_page_10.png" width="600"></a></p>
+
+<p align="center">点击任意页面下载完整 PDF 报告</p>
+
+</details>
 
 > 💡 若 GitHub 内置 PDF 预览器显示"Error loading PDF"，直接点击 PDF 文件右侧的 **Download** 或 **Raw** 按钮即可正常下载查看。原因为 reportlab 嵌入的中文字体与 GitHub 网页渲染器不兼容，PDF 文件本身有效。
 
@@ -93,8 +105,9 @@
 │   ├── charts/              # 生成的可视化图表（13 张 .png）
 │   └── reports/            # 分析报告输出
 ├── docs/                    # 项目文档
-│   ├── README.pdf            # 分析报告 PDF（完整版）
-│   └── README_page_1.png     # 报告封面预览
+│   ├── README.pdf            # 分析报告 PDF（完整版，10页）
+│   ├── README_page_1~10.png  # 报告各页 PNG 预览图
+│   └── generate_preview.py   # PDF 转 PNG 预览脚本
 └── maps/                   # 中国省份地图数据（GeoJSON，供图01/07使用）
 ```
 
