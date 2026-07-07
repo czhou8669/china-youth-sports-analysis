@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-将 docs/ 目录下的 PDF 转换为第一页预览 PNG。
+将 docs/README.pdf 第一页渲染为 PNG 预览图。
 
-用途：GitHub 内置 PDF 预览器对 reportlab 嵌入中文字体的 PDF 支持不佳，
+用途：GitHub 内置 PDF 预览器对嵌入中文字体的 PDF 支持不佳，
       生成 PNG 预览图后可在 README 中直接展示。
 
 依赖（需单独安装）：
@@ -29,17 +29,12 @@ def pdf_to_preview(pdf_path, dpi=150):
 
 
 def main():
-    pdf_files = [
-        os.path.join(DOCS_DIR, "README_原版.pdf"),
-        os.path.join(DOCS_DIR, "README_修正版.pdf"),
-    ]
-
-    for pdf_path in pdf_files:
-        if os.path.exists(pdf_path):
-            print(f"[PDF预览] 处理: {os.path.basename(pdf_path)}")
-            pdf_to_preview(pdf_path)
-        else:
-            print(f"[跳过] 文件不存在: {pdf_path}")
+    pdf_path = os.path.join(DOCS_DIR, "README.pdf")
+    if os.path.exists(pdf_path):
+        print(f"[PDF预览] 处理: {os.path.basename(pdf_path)}")
+        pdf_to_preview(pdf_path)
+    else:
+        print(f"[跳过] 文件不存在: {pdf_path}")
 
 
 if __name__ == "__main__":
