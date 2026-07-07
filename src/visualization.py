@@ -416,9 +416,6 @@ def chart_07_province_density(prov_stats):
     geo_data = _load_geojson()
     _draw_china_map(ax, geo_data, value_dict, bins, cmap, legend_labels,
                     title="2024年全国青少年体育赛事密度（每百万人）")
-
-    fig.suptitle("2024年全国青少年体育赛事密度（每百万人）",
-                 fontsize=15, fontweight="bold", y=0.96)
     fig.text(0.5, 0.91, "消除人口基数差异后的赛事供给水平",
              ha="center", fontsize=10, color=COLOR_LIGHT)
     fig.tight_layout(rect=[0, 0, 1, 0.93])
