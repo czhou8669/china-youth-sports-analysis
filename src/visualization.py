@@ -543,21 +543,95 @@ def chart_11_sh_vs_bj_sports(df):
     return _save_fig(fig, "11_上海vs北京项目对比.png")
 
 
+def chart_12_big_population_provinces(prov_stats):
+    """图12: 人口大省（≥5000万）赛事密度对比"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    big_pop = prov_stats[prov_stats["人口(万)"] >= 5000].sort_values("每百万人赛事数", ascending=True)
+    national_avg = prov_stats["每百万人赛事数"].mean()
+
+    colors = [COLOR_BLUE if v >= national_avg else COLOR_LIGHT
+              for v in big_pop["每百万人赛事数"]]
+    bars = ax.barh(range(len(big_pop)), big_pop["每百万人赛事数"].values,
+                   color=colors, edgecolor="white")
+    ax.set_yticks(range(len(big_pop)))
+    ax.set_yticklabels(big_pop["省名称"].values, fontsize=11)
+    ax.set_xlabel("每百万人赛事数（场）", fontsize=12)
+    ax.set_title("人口大省（≥5000万）赛事密度对比", fontsize=14, fontweight="bold", pad=15)
+
+    ax.axvline(x=national_avg, color=COLOR_RED, linestyle="--", linewidth=1.5,
+               label=f"全国均值 {national_avg:.1f}")
+    ax.legend(fontsize=10)
+
+    for bar, val in zip(bars, big_pop["每百万人赛事数"].values):
+        ax.text(bar.get_width() + 0.15, bar.get_y() + bar.get_height()/2,
+                f"{val:.1f}", va="center", fontsize=10, color=COLOR_DARK)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return _save_fig(fig, "12_人口大省.png")
+
+
+def chart_13_small_population_provinces(prov_stats):
+    """图13: 人口小省（<2000万）赛事密度对比"""
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    small_pop = prov_stats[prov_stats["人口(万)"] < 2000].sort_values("每百万人赛事数", ascending=True)
+    national_avg = prov_stats["每百万人赛事数"].mean()
+
+    colors = [COLOR_BLUE if v >= national_avg else COLOR_LIGHT
+              for v in small_pop["每百万人赛事数"]]
+    bars = ax.barh(range(len(small_pop)), small_pop["每百万人赛事数"].values,
+                   color=colors, edgecolor="white")
+    ax.set_yticks(range(len(small_pop)))
+    ax.set_yticklabels(small_pop["省名称"].values, fontsize=11)
+    ax.set_xlabel("每百万人赛事数（场）", fontsize=12)
+    ax.set_title("人口小省（<2000万）赛事密度对比", fontsize=14, fontweight="bold", pad=15)
+
+    ax.axvline(x=national_avg, color=COLOR_RED, linestyle="--", linewidth=1.5,
+               label=f"全国均值 {national_avg:.1f}")
+    ax.legend(fontsize=10)
+
+    for bar, val in zip(bars, small_pop["每百万人赛事数"].values):
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2,
+                f"{val:.1f}", va="center", fontsize=10, color=COLOR_DARK)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return _save_fig(fig, "13_人口小省.png")
+
+
 def run_all_visualizations(df, prov_stats):
-    """生成全部可视化图表"""
+    """生成全部可视化图表
+
+    注意：图01（省份分布地图）和图07（赛事密度地图）为外部工具生成的热力地图，
+    图09（长三角vs全国）和图10（长三角内部特征）为优化版本，
+    以上 4 张以静态文件形式提供于 output/charts/ 目录，不由本函数重新生成。
+    本函数生成其余 9 张代码驱动的图表（02-06, 08, 11-13）。
+    """
     ensure_dirs()
     print("\n[可视化] 开始生成图表...")
+    print("  注：图01/07/09/10 为外部工具生成的优化版本，以静态文件提供，不重新生成")
 
-    chart_01_province_distribution(df)
+    # 图01: 省份分布地图 — 外部提供（热力地图）
+    # 图02-06: 代码生成
     chart_02_sport_popularity(df)
     chart_03_monthly_distribution(df)
     chart_04_municipality_comparison(df)
     chart_05_consumption_structure(df)
     chart_06_emerging_sports(df)
-    chart_07_province_density(prov_stats)
+    # 图07: 赛事密度地图 — 外部提供（热力地图）
+    # 图08: 代码生成
     chart_08_gdp_scatter(prov_stats)
-    chart_09_yrd_vs_national(df)
-    chart_10_yrd_internal(df)
+    # 图09: 长三角vs全国 — 外部提供（优化版）
+    # 图10: 长三角内部特征 — 外部提供（优化版）
+    # 图11: 代码生成
     chart_11_sh_vs_bj_sports(df)
+    # 图12-13: 代码生成
+    chart_12_big_population_provinces(prov_stats)
+    chart_13_small_population_provinces(prov_stats)
 
-    print(f"\n[可视化] 全部图表已生成至: {CHART_DIR}")
+    print(f"\n[可视化] 代码生成 9 张图表至: {CHART_DIR}")
+    print(f"[可视化] 外部提供 4 张图表（01/07/09/10）已在目录中")
