@@ -94,9 +94,7 @@
 │   └── reports/            # 分析报告输出
 ├── docs/                    # 项目文档
 │   ├── README.pdf            # 分析报告 PDF（完整版，10页）
-│   ├── README_preview.png    # 报告全页拼接预览图（10页合一）
-│   ├── generate_readme_pdf.py  # PDF 生成脚本（reportlab）
-│   └── generate_preview.py   # PDF 转 PNG 预览脚本
+│   └── README_preview.png    # 报告全页拼接预览图（10页合一）
 └── maps/                   # 中国省份地图数据（GeoJSON，供图01/07使用）
 ```
 
