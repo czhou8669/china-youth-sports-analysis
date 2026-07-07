@@ -640,33 +640,118 @@ def chart_10_yrd_internal(df):
 
 
 def chart_11_sh_vs_bj_sports(df):
-    """图11: 上海 vs 北京 运动项目对比"""
-    fig, ax = plt.subplots(figsize=(12, 6))
+    """图11: 上海 vs 北京 运动项目结构对比（2×2子图：广度 vs 深度）"""
+    sh_df = df[df["省名称"] == "上海市"]
+    bj_df = df[df["省名称"] == "北京市"]
 
-    sh_sports = df[df["省名称"] == "上海市"]["运动项目"].value_counts().head(10)
-    bj_sports = df[df["省名称"] == "北京市"]["运动项目"].value_counts().head(10)
+    sh_counts = sh_df["运动项目"].value_counts()
+    bj_counts = bj_df["运动项目"].value_counts()
 
-    all_sports = list(dict.fromkeys(list(sh_sports.index) + list(bj_sports.index)))[:12]
-    sh_vals = [sh_sports.get(s, 0) for s in all_sports]
-    bj_vals = [bj_sports.get(s, 0) for s in all_sports]
+    # 项目分类：大众普及型 vs 高端精英型
+    popular_sports = ["足球", "篮球", "羽毛球", "乒乓球", "游泳", "网球", "排球", "田径", "跆拳道", "武术"]
+    elite_sports = ["高尔夫球", "马术", "冰球", "高山滑雪", "击剑", "棒球", "花样滑冰", "网球"]
 
-    x = np.arange(len(all_sports))
-    w = 0.35
-    ax.bar(x - w/2, sh_vals, w, label="上海", color=COLOR_RED, edgecolor="white")
-    ax.bar(x + w/2, bj_vals, w, label="北京", color=COLOR_BLUE, edgecolor="white")
+    def get_counts(sports_list, counts):
+        return [counts.get(s, 0) for s in sports_list]
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(all_sports, rotation=45, ha="right", fontsize=9)
-    ax.set_ylabel("赛事数量（场）", fontsize=11)
-    ax.set_title("上海 vs 北京：运动项目结构对比", fontsize=14, fontweight="bold", pad=15)
-    ax.legend(fontsize=11)
+    fig, axes = plt.subplots(2, 2, figsize=(15, 11))
 
-    ax.text(0.98, 0.95, "上海: 社区化、多元化（广度型）\n北京: 高消费、精英化（高度型）",
-            transform=ax.transAxes, fontsize=9, ha="right", va="top",
-            bbox=dict(boxstyle="round,pad=0.4", facecolor=COLOR_BG, edgecolor=COLOR_LIGHT))
+    # --- 子图1（左上）：大众普及型项目双柱对比 ---
+    ax1 = axes[0, 0]
+    sh_pop = get_counts(popular_sports, sh_counts)
+    bj_pop = get_counts(popular_sports, bj_counts)
+    x = np.arange(len(popular_sports))
+    w = 0.38
+    ax1.bar(x - w/2, sh_pop, w, label="上海", color=COLOR_RED, edgecolor="white")
+    ax1.bar(x + w/2, bj_pop, w, label="北京", color=COLOR_BLUE, edgecolor="white")
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(popular_sports, rotation=30, ha="right", fontsize=10)
+    ax1.set_ylabel("赛事数量（场）", fontsize=11)
+    ax1.set_title("① 普及型项目：足球·篮球·游泳等大众运动", fontsize=12, fontweight="bold")
+    ax1.legend(fontsize=10, loc="upper right")
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+    # 标注差距
+    for i, (s, b) in enumerate(zip(sh_pop, bj_pop)):
+        if s > 0 or b > 0:
+            diff = s - b
+            color = COLOR_RED if diff > 0 else COLOR_BLUE
+            label = f"差{diff:+d}" if diff != 0 else "持平"
+            top = max(s, b)
+            if top > 0:
+                ax1.text(i, top + 1, label, ha="center", fontsize=8, color=color, fontweight="bold")
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
+    # --- 子图2（右上）：高端精英型项目双柱对比 ---
+    ax2 = axes[0, 1]
+    sh_eli = get_counts(elite_sports, sh_counts)
+    bj_eli = get_counts(elite_sports, bj_counts)
+    x = np.arange(len(elite_sports))
+    ax2.bar(x - w/2, sh_eli, w, label="上海", color=COLOR_RED, edgecolor="white")
+    ax2.bar(x + w/2, bj_eli, w, label="北京", color=COLOR_BLUE, edgecolor="white")
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(elite_sports, rotation=30, ha="right", fontsize=10)
+    ax2.set_ylabel("赛事数量（场）", fontsize=11)
+    ax2.set_title("② 精英型项目：高尔夫·马术·冰雪等高门槛运动", fontsize=12, fontweight="bold")
+    ax2.legend(fontsize=10, loc="upper right")
+    ax2.spines["top"].set_visible(False)
+    ax2.spines["right"].set_visible(False)
+    for i, (s, b) in enumerate(zip(sh_eli, bj_eli)):
+        if s > 0 or b > 0:
+            diff = s - b
+            color = COLOR_BLUE if diff > 0 else COLOR_RED
+            label = f"差{diff:+d}" if diff != 0 else "持平"
+            top = max(s, b)
+            if top > 0:
+                ax2.text(i, top + 1, label, ha="center", fontsize=8, color=color, fontweight="bold")
+
+    # --- 子图3（左下）：广度 vs 深度（双轴柱状） ---
+    ax3 = axes[1, 0]
+    metrics = ["项目数\n(广度)", "总赛事数\n(规模)", "平均每项目\n赛事数(深度)"]
+    sh_metrics = [sh_counts.size, len(sh_df), round(len(sh_df) / sh_counts.size, 1)]
+    bj_metrics = [bj_counts.size, len(bj_df), round(len(bj_df) / bj_counts.size, 1)]
+    x = np.arange(len(metrics))
+    ax3.bar(x - w/2, sh_metrics, w, label="上海", color=COLOR_RED, edgecolor="white")
+    ax3.bar(x + w/2, bj_metrics, w, label="北京", color=COLOR_BLUE, edgecolor="white")
+    ax3.set_xticks(x)
+    ax3.set_xticklabels(metrics, fontsize=10)
+    ax3.set_ylabel("数量", fontsize=11)
+    ax3.set_title("③ 广度 vs 深度：上海赢广度，北京赢深度", fontsize=12, fontweight="bold")
+    ax3.legend(fontsize=10)
+    ax3.spines["top"].set_visible(False)
+    ax3.spines["right"].set_visible(False)
+    for i, (s, b) in enumerate(zip(sh_metrics, bj_metrics)):
+        max_v = max(s, b)
+        if max_v > 0:
+            ax3.text(i - w/2, s + max_v * 0.02, f"{s}", ha="center", fontsize=9, fontweight="bold")
+            ax3.text(i + w/2, b + max_v * 0.02, f"{b}", ha="center", fontsize=9, fontweight="bold")
+
+    # --- 子图4（右下）：两城 Top 5 热门项目对比 ---
+    ax4 = axes[1, 1]
+    sh_top5 = sh_counts.head(5)
+    bj_top5 = bj_counts.head(5)
+    combined = list(dict.fromkeys(list(sh_top5.index) + list(bj_top5.index)))[:8]
+    sh_v = [sh_counts.get(s, 0) for s in combined]
+    bj_v = [bj_counts.get(s, 0) for s in combined]
+    x = np.arange(len(combined))
+    ax4.barh(x, sh_v, 0.4, label="上海", color=COLOR_RED, edgecolor="white")
+    ax4.barh(x, [-v for v in bj_v], 0.4, label="北京", color=COLOR_BLUE, edgecolor="white")
+    ax4.set_yticks(x)
+    ax4.set_yticklabels(combined, fontsize=10)
+    ax4.axvline(0, color="black", linewidth=0.8)
+    ax4.set_xlabel("赛事数量（场）", fontsize=11)
+    ax4.set_title("④ 双城热门项目 Top 5 横向对比（上海← | →北京）", fontsize=12, fontweight="bold")
+    ax4.legend(fontsize=10, loc="lower right")
+    ax4.spines["top"].set_visible(False)
+    ax4.spines["right"].set_visible(False)
+    for i, v in enumerate(sh_v):
+        if v > 0:
+            ax4.text(v + 1, i, str(v), va="center", ha="left", fontsize=9, color=COLOR_RED, fontweight="bold")
+    for i, v in enumerate(bj_v):
+        if v > 0:
+            ax4.text(-v - 1, i, str(v), va="center", ha="right", fontsize=9, color=COLOR_BLUE, fontweight="bold")
+
+    fig.suptitle("上海 vs 北京：广度型 vs 高度型 赛事结构对比",
+                 fontsize=15, fontweight="bold", y=0.995)
     fig.tight_layout()
     return _save_fig(fig, "11_上海vs北京项目对比.png")
 
