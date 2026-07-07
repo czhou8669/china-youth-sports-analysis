@@ -15,19 +15,6 @@ env/
 *.swp
 *.swo
 
-# 数据文件（原始Excel含敏感信息，不应上传）
-data/*.xlsx
-data/*.xls
-data/*.csv
-
-# 清洗后数据（可选择不上传，太大）
-output/
-*.csv
-
-# 图表产物（可选择不上传，从代码重新生成）
-output/charts/*.png
-output/reports/*
-
 # OS
 .DS_Store
 Thumbs.db

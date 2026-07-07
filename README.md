@@ -69,8 +69,9 @@
 ├── requirements.txt           # Python 依赖
 ├── main.py                   # 主入口：一键运行全流程
 ├── config.py                 # 配置：路径、中文字体、人口经济常量
-├── data/                    # 数据目录（放入原始 Excel 文件）
-│   └── 青少年体育赛事_清洗后.csv   # 清洗后数据（自动生成）
+├── data/                    # 数据目录（已包含原始数据，克隆即用）
+│   ├── 全国群众体育赛事、青少年体育赛事、马拉松赛事信息.xlsx   # 原始数据
+│   └── 青少年体育赛事_清洗后.csv   # 清洗后数据（可由代码重新生成）
 ├── src/
 │   ├── __init__.py
 │   ├── data_cleaning.py      # 数据清洗（删除空列、统一级别、时间处理...）
@@ -97,15 +98,9 @@ pip install -r requirements.txt
 
 > **中文字体**：代码中 `config.py` 的 `setup_chinese_font()` 函数会自动适配 macOS（PingFang/STHeiti）、Windows（微软雅黑）、Linux（文泉驿），无需手动配置。
 
-### 2. 放入数据文件
+### 2. 运行
 
-将原始 Excel 文件（名为 `全国群众体育赛事、青少年体育赛事、马拉松赛事信息.xlsx`）放入 `data/` 目录：
-
-```
-data/全国群众体育赛事、青少年体育赛事、马拉松赛事信息.xlsx
-```
-
-### 3. 一键运行全流程
+项目已内置原始数据文件（`data/` 目录），克隆后即可直接运行，无需额外准备数据：
 
 ```bash
 python main.py
@@ -118,7 +113,7 @@ python main.py
 4. 长三角专题分析 → 终端打印
 5. 生成 13 张可视化图表 → 输出到 `output/charts/`
 
-### 4. 单独运行某一步骤
+### 3. 单独运行某一步骤
 
 ```bash
 python main.py --clean-only    # 仅执行数据清洗
