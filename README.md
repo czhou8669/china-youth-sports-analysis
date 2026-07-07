@@ -59,7 +59,16 @@
 
 <p align="center">长三角内部结构性分化</p>
 
-> 完整 13 张图表详见 `output/charts/` 目录。完整分析报告（含修正说明）详见 `docs/` 目录。
+> 完整 13 张图表详见 `output/charts/` 目录。完整分析报告（含修正说明）见 `docs/` 目录。
+
+### 分析报告预览
+
+| 修正版 README | 原版 README |
+|--------------|------------|
+| [![修正版 README 预览](docs/README_修正版_page_1.png)](docs/README_修正版.pdf) | [![原版 README 预览](docs/README_原版_page_1.png)](docs/README_原版.pdf) |
+| 点击预览图下载完整 PDF | 点击预览图下载完整 PDF |
+
+> 💡 若 GitHub 内置 PDF 预览器显示"Error loading PDF"，直接点击 PDF 文件右侧的 **Download** 或 **Raw** 按钮即可正常下载查看。原因为 reportlab 嵌入的中文字体与 GitHub 网页渲染器不兼容，PDF 文件本身有效。
 
 ## 项目结构
 
